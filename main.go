@@ -22,7 +22,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	defer func() {
+		if len(os.Args) < 2 || os.Args[1] != "leave-temps" {
+			bootstrap.CleadUp(dir)
+		}
+	}()
 	name, trg, packets, servers, err := bootstrap.ParseDir(dir)
 	fatal(err, "parsing dir")
 	err = bootstrap.GenBootstrap(dir, trg, name, packets, servers, gfiles)
@@ -31,7 +35,4 @@ func main() {
 	fatal(err, "runing bootstrap")
 	err = bootstrap.MvTmp(dir)
 	fatal(err, "writing new file")
-	if len(os.Args) < 2 || os.Args[1] != "leave-temps" {
-		bootstrap.CleadUp(dir)
-	}
 }
