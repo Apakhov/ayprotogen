@@ -1,6 +1,9 @@
 package packgen
 
-import "github.com/pkg/errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrNotStruct     = errors.New("not struct")
@@ -15,4 +18,11 @@ var (
 type StructErr struct {
 	Err  error
 	Name string
+}
+
+func errorWrap(err error, msg string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %s", msg, err.Error())
 }

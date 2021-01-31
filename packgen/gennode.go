@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-
-	"github.com/pkg/errors"
 )
 
 type genNode interface {
@@ -34,20 +32,20 @@ func makeChildNode(node genNode, t reflect.Type) error {
 		for i := 0; i < t.NumField(); i++ {
 			err := makeChildNode(newNode, t.Field(i).Type)
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprint("generating ", t))
+				return errorWrap(err, fmt.Sprint("generating ", t))
 			}
 		}
 	case reflect.Slice:
 		newNode = newSliceNode(newBase)
 		err := makeChildNode(newNode, t.Elem())
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprint("generating ", t))
+			return errorWrap(err, fmt.Sprint("generating ", t))
 		}
 	default:
 		var err error
 		newNode, err = newSimpleNode(newBase, t)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprint("generating ", t))
+			return errorWrap(err, fmt.Sprint("generating ", t))
 		}
 	}
 	node.base().childs = append(node.base().childs, newNode)
@@ -185,7 +183,7 @@ func newSimpleNode(base *nodeBase, t reflect.Type) (*simpleNode, error) {
 		t:            nt,
 		packSchema:   mpFieldToPackSchema[t.Kind()],
 		unpackSchema: mpFieldToUnpackSchema[t.Kind()],
-	}, errors.Wrap(err, "generating field")
+	}, errorWrap(err, "generating field")
 }
 
 func (n *simpleNode) getType() string {

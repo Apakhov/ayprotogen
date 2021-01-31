@@ -5,8 +5,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type strBuilder struct {
@@ -114,13 +112,13 @@ func (g *Generator) genHeader() {
 func (g *Generator) WriteFiles(dir string) error {
 	tmpF, err := os.Create(dir + "/packgen_ayproto.go.temp")
 	if err != nil {
-		return errors.Wrap(err, "cant open temp file")
+		return errorWrap(err, "cant open temp file")
 	}
 	defer tmpF.Close()
 
 	_, err = fmt.Fprintln(tmpF, g.String())
 	if err != nil {
-		return errors.Wrap(err, "cant write to temp file")
+		return errorWrap(err, "cant write to temp file")
 	}
 
 	return nil
