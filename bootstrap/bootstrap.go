@@ -123,6 +123,8 @@ type btTmInfo struct {
 	Dir     string
 	Trg     string
 	PkgName string
+	Imports map[string]struct{}
+	GFiles  []GFile
 	Packets []packetDoc
 	Servers map[string]map[int32]methodDoc
 }
@@ -134,22 +136,20 @@ var btTm = `//+build ignore
 package main
 
 import (
-	"github.com/Apakhov/ayproto/packgen"
 	pkg "{{.PkgName}}"
-	"reflect"
-
-	"log"
+	{{ range $imp, $a := .Imports }}
+	{{ $imp }}{{ end }}
 )
 
 func main() {
-	g := packgen.NewGenerator("{{.Trg}}", "{{.PkgName}}")
+	g := NewGenerator("{{.Trg}}", "{{.PkgName}}")
 {{ range .Packets }}
 	g.AddStruct(reflect.TypeOf(pkg.{{ .Name }}{})) 
 {{ end }}
 {{ range $serv, $handlers := .Servers }}
 	g.AddServer(reflect.TypeOf(pkg.{{ $serv }}{}),
 	{{ range $handler, $doc := $handlers }}
-		reflect.TypeOf((&pkg.{{ $serv }}{}).{{ $doc.Name }}), packgen.MethodDoc{
+		reflect.TypeOf((&pkg.{{ $serv }}{}).{{ $doc.Name }}), MethodDoc{
 			Name: "{{ $doc.Name }}",
 			SVC: {{ $doc.SVC }},
 			Wrappers: []string{ {{ range $doc.Wrappers }} {{ . }}, {{ end }} },
@@ -171,18 +171,62 @@ func main() {
 		log.Println(err)
 	}
 }
+
+{{ range .GFiles }}
+	// {{ .Name }}  {{ .Content }}
+{{ end }}
 `
 
-func GenBootstrap(dir, trg, pkgname string, packets []packetDoc, servers map[string]map[int32]methodDoc) error {
+type GFile struct {
+	Name    string
+	Content string
+}
+
+func (g *GFile) CutImports() []string {
+	lines := strings.Split(g.Content, "\n")
+	resCont := make([]string, 0, len(lines))
+	resImp := make([]string, 0)
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(line, "import \"") {
+			resImp = append(resImp, strings.TrimPrefix(line, "import "))
+			continue
+		}
+		if strings.HasPrefix(line, "import (") {
+			for i++; lines[i] != ")"; i++ {
+				resImp = append(resImp, strings.TrimPrefix(lines[i], "\t"))
+			}
+			continue
+		}
+
+		resCont = append(resCont, line)
+	}
+	g.Content = strings.Join(resCont, "\n")
+	return resImp
+}
+
+func GenBootstrap(dir, trg, pkgname string, packets []packetDoc, servers map[string]map[int32]methodDoc, gfiles []GFile) error {
 	f, err := os.Create(dir + "/bootstrap_ayproto.go")
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
+	imports := map[string]struct{}{
+		`"reflect"`: {},
+		`"log"`:     {},
+	}
+
 	tm, err := template.New("bt").Parse(btTm)
 	if err != nil {
 		return err
+	}
+
+	for i := 0; i < len(gfiles); i++ {
+		imps := gfiles[i].CutImports()
+		for _, imp := range imps {
+			imports[imp] = struct{}{}
+		}
 	}
 
 	bld := strings.Builder{}
@@ -190,6 +234,8 @@ func GenBootstrap(dir, trg, pkgname string, packets []packetDoc, servers map[str
 	err = tm.Execute(&bld, btTmInfo{
 		Dir:     dir,
 		Trg:     trg,
+		Imports: imports,
+		GFiles:  gfiles,
 		PkgName: pkgname,
 		Packets: packets,
 		Servers: servers,

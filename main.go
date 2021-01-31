@@ -8,6 +8,8 @@ import (
 	"github.com/Apakhov/ayprotogen/bootstrap"
 )
 
+//go:generate go run genfiles/main.go packgen
+
 func fatal(err error) {
 	if err != nil {
 		fmt.Println(err)
@@ -30,7 +32,7 @@ func main() {
 	}()
 	name, trg, packets, servers, err := bootstrap.ParseDir(dir)
 	fatal(err)
-	err = bootstrap.GenBootstrap(dir, trg, name, packets, servers)
+	err = bootstrap.GenBootstrap(dir, trg, name, packets, servers, gfiles)
 	fatal(err)
 	err = bootstrap.RunBootstrap(dir)
 	fatal(err)
