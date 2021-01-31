@@ -129,7 +129,7 @@ var btTm = `//+build ignore
 package main
 
 import (
-	"github.com/Apakhov/ayprotogen/packgen"
+	"github.com/Apakhov/ayprotogen/ayproto/packgen"
 	pkg "{{.PkgName}}"
 	"reflect"
 
