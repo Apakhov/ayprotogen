@@ -10,31 +10,28 @@ import (
 
 //go:generate go run genfiles/main.go packgen
 
-func fatal(err error) {
+func fatal(err error, msg string) {
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(msg, ":", err)
 		os.Exit(1)
 	}
 }
 
 func main() {
-	succ := false
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() {
-		if len(os.Args) >= 2 && os.Args[1] == "leave-temps" {
-			succ = false
-		}
-		err := bootstrap.CleadUp(dir, succ)
-		fatal(err)
-	}()
+
 	name, trg, packets, servers, err := bootstrap.ParseDir(dir)
-	fatal(err)
+	fatal(err, "parsing dir")
 	err = bootstrap.GenBootstrap(dir, trg, name, packets, servers, gfiles)
-	fatal(err)
+	fatal(err, "generating bootstrap")
 	err = bootstrap.RunBootstrap(dir)
-	fatal(err)
-	succ = true
+	fatal(err, "runing bootstrap")
+	err = bootstrap.MvTmp(dir)
+	fatal(err, "writing new file")
+	if len(os.Args) < 2 || os.Args[1] != "leave-temps" {
+		bootstrap.CleadUp(dir)
+	}
 }

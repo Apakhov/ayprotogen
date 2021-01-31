@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"encoding/json"
-	"fmt"
 	"go/doc"
 	"go/parser"
 	"go/token"
@@ -84,7 +83,6 @@ func ParseDir(dir string) (string, string, []packetDoc, map[string]map[int32]met
 	impPath := ""
 	for name, pkg := range pkgs {
 		impPath = name
-		fmt.Println("!!!!!", name)
 		docs := doc.New(pkg, name, 0)
 		for _, t := range docs.Types {
 			doc, err := getPacketDoc(t.Doc, t.Name)
@@ -162,13 +160,14 @@ func main() {
 			log.Println(err.Name)
 			log.Println(err.Err.Error())
 		}
-		return
+		os.Exit(1)
 	}
 	g.Gen()
 
 	err := g.WriteFiles("{{.Dir}}")
 	if err != nil {
 		log.Println(err)
+		os.Exit(1)
 	}
 }
 
@@ -215,6 +214,7 @@ func GenBootstrap(dir, trg, pkgname string, packets []packetDoc, servers map[str
 	imports := map[string]struct{}{
 		`"reflect"`: {},
 		`"log"`:     {},
+		`"os"`:      {},
 	}
 
 	tm, err := template.New("bt").Parse(btTm)
@@ -258,26 +258,28 @@ func RunBootstrap(dir string) error {
 	return err
 }
 
-func CleadUp(dir string, succ bool) error {
-	btsFileName := dir + "/bootstrap_ayproto.go"
-	os.Remove(btsFileName)
-	if succ {
-		realF, err := os.Create(dir + "/packgen_ayproto.go")
-		if err != nil {
-			return err
-		}
-		defer realF.Close()
-		tmpF, err := os.Open(dir + "/packgen_ayproto.go.temp")
-		if err != nil {
-			return err
-		}
-		defer tmpF.Close()
-		t, err := ioutil.ReadAll(tmpF)
-		if err != nil {
-			return err
-		}
-		realF.Write(t)
+func MvTmp(dir string) error {
+	realF, err := os.Create(dir + "/packgen_ayproto.go")
+	if err != nil {
+		return err
 	}
-	os.Remove(dir + "/packgen_ayproto.go.temp")
+	defer realF.Close()
+	tmpF, err := os.Open(dir + "/packgen_ayproto.go.temp")
+	if err != nil {
+		return err
+	}
+	defer tmpF.Close()
+	t, err := ioutil.ReadAll(tmpF)
+	if err != nil {
+		return err
+	}
+	realF.Write(t)
 	return errors.Wrap(exec.Command("go", "fmt", dir+"/packgen_ayproto.go").Run(), "cant format generated file")
+}
+
+func CleadUp(dir string) {
+	btsFileName := dir + "/bootstrap_ayproto.go"
+	tmpFileName := dir + "/packgen_ayproto.go.temp"
+	os.Remove(btsFileName)
+	os.Remove(tmpFileName)
 }
