@@ -16,7 +16,7 @@ func (g *Generator) AddStruct(t reflect.Type) {
 
 	root := &rootNode{newNodeBase(g)}
 
-	err := makeChildNode(root, t)
+	err := makeChildNode(root, t, opts{})
 	if err != nil {
 		g.addErr(StructErr{
 			Err:  err,

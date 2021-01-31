@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Apakhov/ayprotogen/bootstrap"
+	_ "github.com/Apakhov/ayprotogen/packgen"
 )
 
 //go:generate go run genfiles/main.go packgen
