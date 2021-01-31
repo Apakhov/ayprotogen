@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/Apakhov/ayprotogen/bootstrap"
@@ -16,14 +17,20 @@ func fatal(err error) {
 
 func main() {
 	succ := false
-	dir := os.Args[1]
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer func() {
+		if len(os.Args) >= 2 && os.Args[1] == "leave-temps" {
+			succ = false
+		}
 		err := bootstrap.CleadUp(dir, succ)
 		fatal(err)
 	}()
-	name, packets, servers, err := bootstrap.ParseDir(dir)
+	name, trg, packets, servers, err := bootstrap.ParseDir(dir)
 	fatal(err)
-	err = bootstrap.GenBootstrap(dir, name, packets, servers)
+	err = bootstrap.GenBootstrap(dir, trg, name, packets, servers)
 	fatal(err)
 	err = bootstrap.RunBootstrap(dir)
 	fatal(err)

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/doc"
 	"go/parser"
 	"go/token"
@@ -63,14 +64,14 @@ func getPacketDoc(s string, name string) (*packetDoc, error) {
 	return doc, nil
 }
 
-func ParseDir(dir string) (string, []packetDoc, map[string]map[int32]methodDoc, error) {
+func ParseDir(dir string) (string, string, []packetDoc, map[string]map[int32]methodDoc, error) {
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, dir, func(o os.FileInfo) bool {
 		return strings.HasSuffix(o.Name(), ".go") && !strings.HasSuffix(o.Name(), "_ayproto.go")
 	}, parser.ParseComments)
 
 	if err != nil {
-		return "", nil, nil, err
+		return "", "", nil, nil, err
 	}
 
 	packets := make([]packetDoc, 0)
@@ -78,14 +79,17 @@ func ParseDir(dir string) (string, []packetDoc, map[string]map[int32]methodDoc, 
 	p := parse.Parser{}
 	err = p.Parse(dir)
 	if err != nil {
-		return "", nil, nil, err
+		return "", "", nil, nil, err
 	}
+	impPath := ""
 	for name, pkg := range pkgs {
+		impPath = name
+		fmt.Println("!!!!!", name)
 		docs := doc.New(pkg, name, 0)
 		for _, t := range docs.Types {
 			doc, err := getPacketDoc(t.Doc, t.Name)
 			if err != nil {
-				return "", nil, nil, err
+				return "", "", nil, nil, err
 			}
 			if doc != nil {
 				packets = append(packets, *doc)
@@ -94,14 +98,14 @@ func ParseDir(dir string) (string, []packetDoc, map[string]map[int32]methodDoc, 
 			for _, m := range t.Methods {
 				doc, err := getMethodDoc(m.Doc, m.Name)
 				if err != nil {
-					return "", nil, nil, err
+					return "", "", nil, nil, err
 				}
 				if doc != nil {
 					if servers[t.Name] == nil {
 						servers[t.Name] = make(map[int32]methodDoc)
 					}
 					if _, ok := servers[t.Name][doc.SVC]; ok {
-						return "", nil, nil, errors.Errorf(
+						return "", "", nil, nil, errors.Errorf(
 							"two methods with svc %d: %s, %s\n",
 							doc.SVC, doc.Name, servers[t.Name][doc.SVC].Name,
 						)
@@ -112,11 +116,12 @@ func ParseDir(dir string) (string, []packetDoc, map[string]map[int32]methodDoc, 
 		}
 
 	}
-	return p.ImportPath, packets, servers, nil
+	return p.ImportPath, impPath, packets, servers, nil
 }
 
 type btTmInfo struct {
 	Dir     string
+	Trg     string
 	PkgName string
 	Packets []packetDoc
 	Servers map[string]map[int32]methodDoc
@@ -129,7 +134,7 @@ var btTm = `//+build ignore
 package main
 
 import (
-	"github.com/Apakhov/ayprotogen/ayproto/packgen"
+	"github.com/Apakhov/ayproto/packgen"
 	pkg "{{.PkgName}}"
 	"reflect"
 
@@ -137,7 +142,7 @@ import (
 )
 
 func main() {
-	g := packgen.NewGenerator("{{.Dir}}", "{{.PkgName}}")
+	g := packgen.NewGenerator("{{.Trg}}", "{{.PkgName}}")
 {{ range .Packets }}
 	g.AddStruct(reflect.TypeOf(pkg.{{ .Name }}{})) 
 {{ end }}
@@ -168,7 +173,7 @@ func main() {
 }
 `
 
-func GenBootstrap(dir, pkgname string, packets []packetDoc, servers map[string]map[int32]methodDoc) error {
+func GenBootstrap(dir, trg, pkgname string, packets []packetDoc, servers map[string]map[int32]methodDoc) error {
 	f, err := os.Create(dir + "/bootstrap_ayproto.go")
 	if err != nil {
 		return err
@@ -184,6 +189,7 @@ func GenBootstrap(dir, pkgname string, packets []packetDoc, servers map[string]m
 
 	err = tm.Execute(&bld, btTmInfo{
 		Dir:     dir,
+		Trg:     trg,
 		PkgName: pkgname,
 		Packets: packets,
 		Servers: servers,
