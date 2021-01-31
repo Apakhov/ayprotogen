@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/Apakhov/ayprotogen/bootstrap"
@@ -10,18 +9,23 @@ import (
 
 //go:generate go run genfiles/main.go packgen
 
-func fatal(err error, msg string) {
-	if err != nil {
-		fmt.Println(msg, ":", err)
+func exit1OnFatal() {
+	if s, ok := recover().(string); ok && s == "" {
 		os.Exit(1)
 	}
 }
 
-func main() {
-	dir, err := os.Getwd()
+func fatal(err error, msg string) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(msg, ":", err)
+		panic("")
 	}
+}
+
+func main() {
+	defer exit1OnFatal()
+	dir, err := os.Getwd()
+	fatal(err, "opening dir")
 	defer func() {
 		if len(os.Args) < 2 || os.Args[1] != "leave-temps" {
 			bootstrap.CleadUp(dir)
